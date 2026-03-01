@@ -1,0 +1,223 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum para diferenciar os tipos de dispositivo (Tranca vs Medidores)
+enum DeviceType {
+  ACCESS_CONTROL // Tranca
+  WATER_METER    // Água
+  ENERGY_METER   // Energia
+  GAS_METER      // Gás
+}
+
+model User {
+  id             Int       @id @default(autoincrement())
+  email          String    @unique
+  username       String    @unique
+  accessPin      String?   @unique @map("access_pin")
+  password       String
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  labs           UserLab[]
+  roles          UserRole[]
+  pinCodes       DevicePinCode[]
+  cards          UserCard[]
+  accesses       UserAccess[]
+  reservations   Reservation[]
+  accessRequests TemporaryAccessRequest[]
+
+  @@map("users")
+}
+
+model Lab {
+  id             Int       @id @default(autoincrement())
+  name           String    @unique
+  
+  // Relação com Dispositivo (Tranca) - Lab é o dono da relação
+  deviceId       Int?      @unique @map("device_id")
+  device         Device?   @relation(fields: [deviceId], references: [id])
+
+  users          UserLab[]
+  reservations   Reservation[]
+  accessRequests TemporaryAccessRequest[]
+}
+
+model UserLab {
+  id      Int     @id @default(autoincrement())
+  userId  Int
+  labId   Int
+  isStaff Boolean @default(false)
+
+  user    User    @relation(fields: [userId], references: [id])
+  lab     Lab     @relation(fields: [labId], references: [id])
+
+  @@unique([userId, labId])
+}
+
+model Role {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  userRoles   UserRole[]
+  deviceRoles DeviceRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     Int  @id @default(autoincrement())
+  userId Int  @map("user_id")
+  roleId Int  @map("role_id")
+
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Device {
+  id           Int        @id @default(autoincrement())
+  uuid         String     @unique @default(uuid())
+  name         String?    // Nome amigável (ex: "Medidor Bloco A")
+  
+  macAddress   String?    @unique @map("mac_address")
+  ipAddress    String?    @map("ip_address")
+  apiToken     String?    @unique @map("api_token")
+  
+  // Configuração do Dispositivo
+  type         DeviceType @default(ACCESS_CONTROL)
+  isAuthorized Boolean    @default(false)
+  
+  // Localização (Texto livre para medidores, ou vinculado via Lab para trancas)
+  section      String?
+  location     String?
+
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Relações
+  roles        DeviceRole[]
+  pinCodes     DevicePinCode[]
+  accesses     UserAccess[]
+  readings     MeterReading[] // Leituras dos sensores (Sparc)
+
+  // Back-relation com Lab (Sem campos aqui, pois Lab detém a FK)
+  lab          Lab?
+
+  @@map("devices")
+}
+
+// Tabela de Dados dos Sensores (Sparc)
+model MeterReading {
+  id          Int      @id @default(autoincrement())
+  
+  deviceId    Int
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  
+  type        Int      // 1=Volume, 2=kWh, 3=Watt, 4=Ampere
+  value       Float    // Leitura instantânea
+  total       Float    // Leitura acumulada
+  
+  collectedAt DateTime @default(now())
+
+  @@index([deviceId, collectedAt])
+}
+
+model DeviceRole {
+  id       Int    @id @default(autoincrement())
+  deviceId Int    @map("device_id")
+  roleId   Int    @map("role_id")
+
+  device   Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  role     Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, roleId])
+  @@map("device_roles")
+}
+
+model DevicePinCode {
+  id        Int       @id @default(autoincrement())
+  deviceId  Int       @map("device_id")
+  userId    Int       @map("user_id")
+  pin       Int
+  dateInit  DateTime? @map("date_init")
+  dateStop  DateTime? @map("date_stop")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  device    Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("device_pin_codes")
+}
+
+model Approximation {
+  id         Int        @id @default(autoincrement())
+  cardId     String     @unique @map("card_id")
+  name       String?    @default("empty")
+  permission Boolean    @default(false)
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  userCards  UserCard[]
+
+  @@map("approximations")
+}
+
+model UserCard {
+  id              Int           @id @default(autoincrement())
+  userId          Int           @map("user_id")
+  approximationId Int           @map("approximation_id")
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approximation   Approximation @relation(fields: [approximationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, approximationId])
+  @@map("user_cards")
+}
+
+model UserAccess {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  deviceId   Int      @map("device_id")
+  date       DateTime @default(now())
+  permission Boolean  @default(false)
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  device     Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("user_accesses")
+}
+
+model Reservation {
+  id        Int      @id @default(autoincrement())
+  startTime DateTime
+  endTime   DateTime
+  userId    Int
+  labId     Int
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lab       Lab      @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, labId, startTime]) 
+}
+
+model TemporaryAccessRequest {
+  id        Int       @id @default(autoincrement())
+  labId     Int
+  userId    Int
+  expiresAt DateTime?
+  isOneTime Boolean   @default(false)
+  approved  Boolean?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id])
+  lab       Lab       @relation(fields: [labId], references: [id])
+}
