@@ -113,53 +113,53 @@ export class DevicesService {
   async validatePinAccess(dto: PinAuthDto) {
     const { pin, macAddress } = dto;
 
-    // 1. Validar Dispositivo
     const device = await this.prisma.device.findUnique({
       where: { macAddress },
       include: { 
-        roles: { include: { role: true } },
-        lab: true // Importante: precisamos saber qual lab é esse
+        lab: true 
       },
     });
 
-    if (!device) return "Unauthorized";
+    if (!device) return "Unauthorized (device)";
 
-    // 2. Buscar Usuário pelo PIN
     const user = await this.prisma.user.findUnique({
       where: { accessPin: pin },
-      include: { roles: { include: { role: true } } },
+      include: { 
+        roles: { include: { role: true } },
+      },
     });
 
-    if (!user || !user.isActive) return "Unauthorized";
+    if (!user || !user.isActive) {
+      await this.prisma.userAccess.create({
+        data: {
+          deviceId: device.id,
+          permission: false
+        },
+      });
+      return "Unauthorized (Sem usuário ou Inativo)";
+    };
 
-    // 3. Verificar Permissões
-    const deviceRoles = device.roles.map(dr => dr.role.name);
     const userRoles = user.roles.map(ur => ur.role.name);
     const isSuperUser = userRoles.includes('superuser');
     
-    // Permissão 1: Roles permanentes (ex: Staff)
-    let hasAccess = isSuperUser || deviceRoles.some(role => userRoles.includes(role));
-
-    // Permissão 2: Reserva Ativa (NOVO)
-    if (!hasAccess && device.lab) {
-      const now = new Date();
-      // Busca uma reserva para este usuário, neste laboratório, que englobe o horário atual
-      const activeReservation = await this.prisma.reservation.findFirst({
+    let isLabStaff = false;
+    if (device.lab) {
+      const userLabRecord = await this.prisma.userLab.findUnique({
         where: {
-          userId: user.id,
-          labId: device.lab.id,
-          startTime: { lte: now }, // Começou antes de agora
-          endTime: { gte: now },   // Termina depois de agora
-        },
+          userId_labId: {
+            userId: user.id,
+            labId: device.lab.id,
+          }
+        }
       });
 
-      if (activeReservation) {
-        hasAccess = true;
-        console.log(`Acesso concedido por reserva: Usuário ${user.username} no Lab ${device.lab.name}`);
+      if (userLabRecord && userLabRecord.isStaff) {
+        isLabStaff = true;
       }
     }
 
-    // 4. Registrar Acesso
+    let hasAccess = isSuperUser || isLabStaff;
+
     await this.prisma.userAccess.create({
       data: {
         userId: user.id,
@@ -172,7 +172,7 @@ export class DevicesService {
     if (hasAccess) {
       return `Authorized?first_name=${user.username}`;
     } else {
-      return "Unauthorized";
+      return "Unauthorized (acesso)";
     }
   }
 }

@@ -54,7 +54,6 @@ export class ApproximationsService {
   async validateCard(dto: ApproximationAuthDto) {
     const { hexid, macaddress } = dto;
 
-    // 1. Verifica o cartão
     const card = await this.prisma.approximation.findUnique({
       where: { cardId: hexid },
     });
@@ -63,38 +62,28 @@ export class ApproximationsService {
       await this.prisma.approximation.create({
         data: { cardId: hexid, permission: false },
       });
-      return "Unauthorized";
+      return "Unauthorized (Sem cartão)";
     }
 
     if (!card.permission) {
-      return "Unauthorized";
+      return "Unauthorized (Sem permisão)";
     }
 
-    // 2. Verifica o dispositivo
     const device = await this.prisma.device.findUnique({
       where: { macAddress: macaddress },
-      include: { roles: { include: { role: true } } },
     });
 
-    if (!device) return "Unauthorized";
+    if (!device) return "Unauthorized (Sem device)";
 
-    // 3. Verifica o usuário vinculado ao cartão
     const userCard = await this.prisma.userCard.findFirst({
       where: { approximationId: card.id },
       include: { user: { include: { roles: { include: { role: true } } } },
     }});
 
-    if (!userCard) return "Unauthorized";
+    if (!userCard) return "Unauthorized (Sem usercard)";
 
-    // 4. Verifica se há interseção de papéis
-    const deviceRoles = device.roles.map(dr => dr.role.name);
-    const userRoles = userCard.user.roles.map(ur => ur.role.name);
+    const hasCommonRole = card.permission;
 
-    const hasCommonRole = deviceRoles.some(role => 
-      userRoles.includes(role)
-    );
-
-    // 5. Registra o acesso
     await this.prisma.userAccess.create({
       data: {
         userId: userCard.user.id,
@@ -107,7 +96,7 @@ export class ApproximationsService {
       const username = userCard.user.username;
       return `Authorized?first_name=${username}`
     } else {
-      return "Unauthorized";
+      return "Unauthorized (não tem hasC)";
     }
   }
 
