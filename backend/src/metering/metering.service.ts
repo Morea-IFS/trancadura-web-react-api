@@ -6,7 +6,6 @@ import { StoreDataDto } from './dto/store-data.dto';
 export class MeteringService {
   constructor(private prisma: PrismaService) {}
 
-  // 1. Recebimento de Dados (Igual ao Django views.py -> storeData)
   async storeData(dto: StoreDataDto) {
     const { apiToken, measure } = dto;
 
@@ -19,7 +18,6 @@ export class MeteringService {
     for (const item of measure) {
       const value = Number(item.value);
       
-      // Lógica de Acumulador do Django
       const lastReading = await this.prisma.meterReading.findFirst({
         where: { deviceId: device.id, type: item.type },
         orderBy: { id: 'desc' }
@@ -43,44 +41,38 @@ export class MeteringService {
     return { message: 'data stored.' };
   }
 
-  // 2. Dados para o Dashboard (Substitui device_chart_data do Django)
   async getChartData(deviceId: number) {
     const device = await this.prisma.device.findUnique({ where: { id: deviceId } });
     if (!device) throw new NotFoundException('Dispositivo não encontrado');
 
-    // Mapeamento de tipos (Baseado no Django)
     let dataTypes = [] as number[];
-    if (device.type === 'WATER_METER') dataTypes = [1]; // Volume
-    else if (device.type === 'ENERGY_METER') dataTypes = [2, 4]; // kWh, Ampere
-    else dataTypes = [1]; // Default
+    if (device.type === 'WATER_METER') dataTypes = [1];
+    else if (device.type === 'ENERGY_METER') dataTypes = [2, 4];
+    else dataTypes = [1];
 
     const response = {};
 
     for (const type of dataTypes) {
-      // Pega os últimos 288 registros (24h se for a cada 5 min)
       const rawData = await this.prisma.meterReading.findMany({
         where: { deviceId, type },
         orderBy: { collectedAt: 'desc' },
         take: 288
       });
 
-      // Reverte para ordem cronológica (Antigo -> Novo)
       const dataEntries = rawData.reverse();
       const values = dataEntries.map(d => d.value);
 
-      // Cálculos estatísticos (Igual ao Django)
       const current = values.length > 0 ? values[values.length - 1] : 0;
       const maxVal = values.length > 0 ? Math.max(...values) : 0;
       const totalSum = values.reduce((a, b) => a + b, 0);
 
-      // Labels amigáveis
       let label = 'Desconhecido';
       if (type === 1) label = 'Volume (L)';
       if (type === 2) label = 'kWh';
       if (type === 4) label = 'Ampere';
 
       response[label] = {
-        labels: dataEntries.map(d => d.collectedAt), // Envia data ISO, frontend formata
+        labels: dataEntries.map(d => d.collectedAt),
         values: values,
         stats: {
           current: Number(current.toFixed(2)),
