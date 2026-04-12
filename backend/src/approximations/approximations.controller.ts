@@ -67,7 +67,6 @@ export class ApproximationsController {
   async registerNewCard(@Body() dto: RegisterCardDto) {
     const { hexid, deviceId, userId } = dto;
 
-    // 1) cria/ativa o cartão
     let card = await this.prisma.approximation.findUnique({ where: { cardId: hexid }});
     if (!card) {
       card = await this.prisma.approximation.create({
@@ -84,7 +83,6 @@ export class ApproximationsController {
       });
     }
 
-    // 2) vincula ao usuário (se não já vinculado)
     const existing = await this.prisma.userCard.findUnique({
       where: { userId_approximationId: { userId, approximationId: card.id } }
     });

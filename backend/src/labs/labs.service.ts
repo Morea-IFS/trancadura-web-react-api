@@ -89,14 +89,11 @@ export class LabsService {
     if (!lab) throw new NotFoundException('Laboratório não encontrado');
     if (!lab.device) throw new NotFoundException('Nenhum dispositivo vinculado');
 
-    // Checagem de Permissão
     let hasPermission = false;
 
-    // 1. Superuser
     const userRoles = await this.getUserRoles(userId);
     if (userRoles.includes('superuser')) hasPermission = true;
 
-    // 2. Permissão Permanente (Staff/Membro)
     if (!hasPermission) {
       const userInLab = await this.prisma.userLab.findUnique({
         where: { userId_labId: { userId, labId } },
@@ -104,7 +101,6 @@ export class LabsService {
       if (userInLab) hasPermission = true;
     }
 
-    // 3. Permissão Temporária (Reserva) - NOVO
     if (!hasPermission) {
       const now = new Date();
       const reservation = await this.prisma.reservation.findFirst({
@@ -118,7 +114,6 @@ export class LabsService {
       if (reservation) hasPermission = true;
     }
 
-    // Registro e Ação
     const access = await this.prisma.userAccess.create({
       data: {
         userId,
@@ -132,7 +127,6 @@ export class LabsService {
       throw new ForbiddenException('Sem permissão ou reserva ativa para este laboratório');
     }
 
-    // Envia comando ao ESP32
     try {
       const espUrl = `http://${lab.device.ipAddress}/open?apiToken=${lab.device.apiToken}`;
       console.log(`Enviando comando para: ${espUrl}`);
@@ -167,17 +161,14 @@ export class LabsService {
   }
 
   async getAccessesByLab(labId: number) {
-    // Encontra o lab para descobrir qual dispositivo está vinculado a ele
     const lab = await this.prisma.lab.findUnique({
       where: { id: labId },
     });
 
-    // Se o lab não existir ou não tiver dispositivo, retorna uma lista vazia
     if (!lab || !lab.deviceId) {
       return [];
     }
 
-    // Busca todos os acessos do dispositivo vinculado àquele lab
     return this.prisma.userAccess.findMany({
       where: { deviceId: lab.deviceId },
       include: { user: true },

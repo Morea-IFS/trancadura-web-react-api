@@ -38,7 +38,6 @@ export class LabsController {
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async getMyLabs() {
-    //const userId = req.user.userId;
     return this.labsService.findAll();
   }
 
@@ -73,7 +72,6 @@ export class LabsController {
       return this.labsService.addUsersToLab(dto);
     }
 
-    // Staff precisa ser staff no laboratório alvo
     const userLab = await this.labsService.getUserLab(requesterId, dto.labId);
     if (!userLab?.isStaff) {
       throw new ForbiddenException(

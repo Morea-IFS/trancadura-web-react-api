@@ -8,12 +8,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enum para diferenciar os tipos de dispositivo (Tranca vs Medidores)
 enum DeviceType {
-  ACCESS_CONTROL // Tranca
-  WATER_METER    // Água
-  ENERGY_METER   // Energia
-  GAS_METER      // Gás
+  ACCESS_CONTROL
+  WATER_METER
+  ENERGY_METER
+  GAS_METER
 }
 
 model User {
@@ -41,7 +40,6 @@ model Lab {
   id             Int       @id @default(autoincrement())
   name           String    @unique
   
-  // Relação com Dispositivo (Tranca) - Lab é o dono da relação
   deviceId       Int?      @unique @map("device_id")
   device         Device?   @relation(fields: [deviceId], references: [id])
 
@@ -86,45 +84,40 @@ model UserRole {
 model Device {
   id           Int        @id @default(autoincrement())
   uuid         String     @unique @default(uuid())
-  name         String?    // Nome amigável (ex: "Medidor Bloco A")
+  name         String?
   
   macAddress   String?    @unique @map("mac_address")
   ipAddress    String?    @map("ip_address")
   apiToken     String?    @unique @map("api_token")
   
-  // Configuração do Dispositivo
   type         DeviceType @default(ACCESS_CONTROL)
   isAuthorized Boolean    @default(false)
   
-  // Localização (Texto livre para medidores, ou vinculado via Lab para trancas)
   section      String?
   location     String?
 
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  // Relações
   roles        DeviceRole[]
   pinCodes     DevicePinCode[]
   accesses     UserAccess[]
   readings     MeterReading[] // Leituras dos sensores (Sparc)
 
-  // Back-relation com Lab (Sem campos aqui, pois Lab detém a FK)
   lab          Lab?
 
   @@map("devices")
 }
 
-// Tabela de Dados dos Sensores (Sparc)
 model MeterReading {
   id          Int      @id @default(autoincrement())
   
   deviceId    Int
   device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   
-  type        Int      // 1=Volume, 2=kWh, 3=Watt, 4=Ampere
-  value       Float    // Leitura instantânea
-  total       Float    // Leitura acumulada
+  type        Int
+  value       Float
+  total       Float
   
   collectedAt DateTime @default(now())
 

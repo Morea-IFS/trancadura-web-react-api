@@ -31,7 +31,6 @@ async function main() {
     },
   });
 
-  // Relacionar usuário à role superuser (só se ainda não estiver relacionado)
   const existingUserRole = await prisma.userRole.findUnique({
     where: {
       userId_roleId: {

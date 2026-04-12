@@ -3,10 +3,10 @@ import { Type } from 'class-transformer';
 
 class MeasureItem {
   @IsNumber()
-  type: number; // 1, 2, 3 ou 4
+  type: number;
 
   @IsNumber()
-  value: number; // O valor da leitura
+  value: number;
 }
 
 export class StoreDataDto {

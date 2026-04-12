@@ -107,7 +107,6 @@ export class DevicesController {
       throw new NotFoundException('Dispositivo não encontrado');
     }
 
-    // Verifica se o usuário tem permissão no laboratório
     const hasAccess = await this.prisma.userLab.findFirst({
       where: {
         userId,

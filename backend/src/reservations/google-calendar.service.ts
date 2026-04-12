@@ -9,7 +9,6 @@ export class GoogleCalendarService {
 
   constructor(private configService: ConfigService) {}
 
-  // Pega o ID da variável de ambiente ou usa um fallback
   private get CALENDAR_ID(): string {
     const calendarId = this.configService.get<string>('GOOGLE_CALENDAR_ID');
     
@@ -19,7 +18,6 @@ export class GoogleCalendarService {
     return calendarId;
   }
 
-  // Helper privado para autenticação (Centraliza a config de auth)
   private async getAuth() {
     return new google.auth.GoogleAuth({
       keyFile: path.join(process.cwd(), 'google-credentials.json'),
@@ -27,16 +25,13 @@ export class GoogleCalendarService {
     });
   }
 
-  // --- Método de Leitura (Sincronização) ---
   async getEventsFromCalendar() {
     this.logger.log(`Conectando ao Google Calendar ID: ${this.CALENDAR_ID}...`);
 
     try {
-      // Usa o helper de auth
       const auth = await this.getAuth();
       const calendar = google.calendar({ version: 'v3', auth });
 
-      // Intervalo de tempo (Próximos 7 dias)
       const now = new Date();
       const nextWeek = new Date();
       nextWeek.setDate(now.getDate() + 7);
@@ -57,12 +52,10 @@ export class GoogleCalendarService {
 
       const mappedEvents = events
         .map((event) => {
-          // 1. Verificação Defensiva
           if (!event.start || !event.end) {
             return null;
           }
 
-          // 2. Extração Segura
           const startString = event.start.dateTime || event.start.date;
           const endString = event.end.dateTime || event.end.date;
 
@@ -71,8 +64,7 @@ export class GoogleCalendarService {
           }
 
           const dateObj = new Date(startString);
-          
-          // Formatação visual
+
           const timeString = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
           const dateString = dateObj.toISOString().split('T')[0];
 
@@ -89,7 +81,6 @@ export class GoogleCalendarService {
             selectedDate: dateString, 
           };
         })
-        // 3. Filtragem de nulos
         .filter((event): event is NonNullable<typeof event> => event !== null);
 
       return mappedEvents;
@@ -100,14 +91,13 @@ export class GoogleCalendarService {
     }
   }
 
-  // --- Método de Criação de Evento ---
   async createEvent(eventData: {
     summary: string;
     location: string;
     description: string;
     startDateTime: string;
     endDateTime: string;
-    recurrenceRule: string[]; // Ex: ["RRULE:FREQ=WEEKLY;UNTIL=20250630T235959Z"]
+    recurrenceRule: string[];
   }) {
     try {
       const auth = await this.getAuth();

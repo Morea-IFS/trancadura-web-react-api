@@ -17,7 +17,6 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    // Se a rota não requer roles específicas, libera
     if (!requiredRoles || requiredRoles.length === 0) return true;
 
     const request = context.switchToHttp().getRequest();
@@ -27,7 +26,7 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Usuário não autenticado.');
     }
 
-    const userRoles = user.roles || []; // ex: ['staff'], vindo do JWT
+    const userRoles = user.roles || [];
 
     const hasRole = requiredRoles.some((role) => userRoles.includes(role));
 

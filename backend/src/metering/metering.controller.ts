@@ -7,14 +7,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
 export class MeteringController {
   constructor(private readonly meteringService: MeteringService) {}
 
-  // Rota Legada para o ESP32 (Compatibilidade Django)
   // URL Final: POST http://SEU_IP:8080/api/store-data
   @Post('store-data')
   async storeData(@Body() dto: StoreDataDto) {
     return this.meteringService.storeData(dto);
   }
 
-  // Nova Rota para o Frontend (Dashboard)
   // URL Final: GET http://SEU_IP:8080/api/metering/1/chart
   @Get('metering/:deviceId/chart')
   @UseGuards(JwtAuthGuard)

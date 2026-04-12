@@ -101,7 +101,6 @@ export class ApproximationsService {
   }
 
   async ingestCard(hexid: string, macaddress: string) {
-    // Verifica se o cartão já existe
     const existingCard = await this.prisma.approximation.findUnique({
       where: { cardId: hexid}
     });
@@ -109,7 +108,6 @@ export class ApproximationsService {
       throw new Error('Este cartão já está cadastrado no sistema.');
     }
 
-    // Criar o novo cartão (sem usuario associado)
     const newCard = await this.prisma.approximation.create({
       data: {
         cardId: hexid,

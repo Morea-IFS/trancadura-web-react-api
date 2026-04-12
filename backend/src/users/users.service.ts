@@ -18,12 +18,9 @@ export class UsersService {
       throw new ConflictException('E-mail já está em uso.');
     }
 
-    //const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-
     return this.prisma.user.create({
       data: {
         ...createUserDto,
-        //password: hashedPassword,
       },
     });
   }
@@ -77,7 +74,6 @@ export class UsersService {
   }
 
   async linkCardToUser(userId: number, approximationId: number) {
-    // Verifica se já existe o vínculo
     const existing = await this.prisma.userCard.findUnique({
       where: {
         userId_approximationId: {
@@ -91,7 +87,6 @@ export class UsersService {
       return { message: 'Cartão já está vinculado a este usuário.' };
     }
 
-    // Cria o vínculo
     return this.prisma.userCard.create({
       data: {
         userId,
@@ -101,7 +96,6 @@ export class UsersService {
   }
 
   async linkCardByCardId(userId: number, cardId: string) {
-    // Encontra o cartão pelo cardId
     const card = await this.prisma.approximation.findUnique({
       where: { cardId }
     });
@@ -110,7 +104,6 @@ export class UsersService {
       throw new NotFoundException('Cartão não encontrado');
     }
 
-    // Verifica se já existe o vínculo
     const existing = await this.prisma.userCard.findUnique({
       where: {
         userId_approximationId: {
@@ -124,7 +117,6 @@ export class UsersService {
       throw new ConflictException('Cartão já está vinculado a este usuário');
     }
 
-    // Cria o vínculo
     return this.prisma.userCard.create({
       data: {
         userId,
@@ -137,7 +129,6 @@ export class UsersService {
   }
 
   async unlinkCard(userId: number, approximationId: number) {
-    // Remove o vínculo
     await this.prisma.userCard.delete({
       where: {
         userId_approximationId: {

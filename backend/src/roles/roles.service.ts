@@ -39,7 +39,6 @@ export class RolesService {
 
   async removeRoleFromUser(dto: { userId: number, roleId: number }) {
     try {
-      // Remove a relação userRole
       await this.prisma.userRole.delete({
         where: {
           userId_roleId: {
@@ -49,7 +48,6 @@ export class RolesService {
         }
       });
 
-      // Remove também o isStaff de todos os labs (opcional)
       await this.prisma.userLab.updateMany({
         where: {
           userId: dto.userId,
@@ -68,7 +66,6 @@ export class RolesService {
   }
 
   async removeRoleByNameFromUser(dto: { userId: number, roleName: string }) {
-    // Encontra a role pelo nome
     const role = await this.prisma.role.findFirst({
       where: { name: dto.roleName }
     });
@@ -78,7 +75,6 @@ export class RolesService {
     }
 
     try {
-      // Remove a relação userRole
       await this.prisma.userRole.deleteMany({
         where: {
           userId: dto.userId,
@@ -86,7 +82,6 @@ export class RolesService {
         }
       });
 
-      // Se for a role 'staff', remove também o isStaff dos labs
       if (dto.roleName === 'staff') {
         await this.prisma.userLab.updateMany({
           where: {
@@ -106,19 +101,15 @@ export class RolesService {
     }
   }
 
-  // src/roles/roles.service.ts
   async assignRoleToUser(dto: AssignRoleDto) {
     const { userId, roleId } = dto;
 
-    // Confirma se o usuário existe
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuário não encontrado');
 
-    // Confirma se o papel existe
     const role = await this.prisma.role.findUnique({ where: { id: roleId } });
     if (!role) throw new NotFoundException('Papel (role) não encontrado');
 
-    // Se for a role 'staff', atualiza os labs correspondentes
     if (role.name === 'staff') {
       await this.prisma.userLab.updateMany({
         where: {
@@ -131,7 +122,6 @@ export class RolesService {
       });
     }
 
-    // Cria ou ignora se já existir
     return this.prisma.userRole.upsert({
       where: {
         userId_roleId: {

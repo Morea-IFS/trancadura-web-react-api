@@ -101,7 +101,6 @@ export class UsersController {
     @Body() dto: { cardId: string },
     @Req() req
   ) {
-    // Verifica permissões
     await this.checkAdminOrSelf(req.user.userId, userId);
     
     return this.usersService.linkCardByCardId(userId, dto.cardId);
@@ -114,7 +113,6 @@ export class UsersController {
     @Param('approximationId', ParseIntPipe) approximationId: number,
     @Req() req
   ) {
-    // Verifica permissões
     await this.checkAdminOrSelf(req.user.userId, userId);
     
     return this.usersService.unlinkCard(userId, approximationId);

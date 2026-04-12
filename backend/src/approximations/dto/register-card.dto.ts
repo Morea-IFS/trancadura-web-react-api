@@ -5,8 +5,8 @@ export class RegisterCardDto {
   hexid: string;
 
   @IsNumber()
-  userId: number; // Adicionei userId para vincular automaticamente
+  userId: number;
 
   @IsNumber()
-  deviceId: number; // Para registro de qual dispositivo fez o cadastro
+  deviceId: number;
 }
