@@ -4,8 +4,14 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  const password = 'admin123';
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (!password) {
+    throw new Error('❌ A variável de ambiente ADMIN_PASSWORD não está definida. Verifique o seu arquivo .env.');
+  }
+
+  const rounds = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
+  const hashedPassword = await bcrypt.hash(password, rounds);
 
   // Criação das roles
   const superUserRole = await prisma.role.upsert({
