@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module';
 
@@ -10,10 +10,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
-  const corsOrigin = configService.get<string>('CORS_ORIGIN') || 'http://localhost:3000';
+  //const corsOrigin = configService.get<string>('CORS_ORIGIN') || 'http://localhost:3000';
 
   app.enableCors({
-    origin: corsOrigin,
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
   });
 
