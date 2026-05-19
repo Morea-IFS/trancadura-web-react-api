@@ -2,12 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
-
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const cookieParser = require('cookie-parser');
 
   const configService = app.get(ConfigService);
   //const corsOrigin = configService.get<string>('CORS_ORIGIN') || 'http://localhost:3000';
