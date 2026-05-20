@@ -4,41 +4,43 @@ import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const cookieParser = require('cookie-parser');
 
   const configService = app.get(ConfigService);
-  //const corsOrigin = configService.get<string>('CORS_ORIGIN') || 'http://localhost:3000';
+
+  // Suporta múltiplas origens separadas por vírgula no CORS_ORIGIN
+  // Ex: "https://trancadura.morea-ifs.org,http://localhost:3000"
+  const rawOrigin = configService.get<string>('CORS_ORIGIN') || 'http://localhost:3000';
+  const allowedOrigins = rawOrigin.split(',').map((o) => o.trim());
+
+  console.log('🔐 CORS Origins permitidas:', allowedOrigins);
 
   app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN') || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Permite requisições sem origin (ex: Postman, chamadas server-side)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      console.warn(`❌ CORS bloqueado para origin: ${origin}`);
+      return callback(new Error(`CORS bloqueado: origem não permitida - ${origin}`), false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  // Security
-  app.use(helmet());
-
   // Cookie parser
   app.use(cookieParser());
 
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', req.headers.origin);
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(204);
-    }
-
-    next();
-  });
-
-  console.log('CORS ENV:', configService.get('CORS_ORIGIN'));
+  // Security (aplicado DEPOIS do CORS para não interferir nos headers)
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
 
   // Global validation pipe
   app.useGlobalPipes(
