@@ -1,5 +1,5 @@
 FROM node:20-alpine
-ENV CACHE_BUSTER=1
+ENV CACHE_BUSTER=2
 
 WORKDIR /app
 
