@@ -3,10 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateLabDto } from './dto/create-lab.dto';
 import { UpdateLabDto } from './dto/update-lab.dto';
 import { AddUsersToLabDto } from './dto/add-user-to-lab.dto';
+import { DevicesGateway } from '../devices/devices.gateway';
 
 @Injectable()
 export class LabsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private devicesGateway: DevicesGateway,
+  ) {}
 
   create(data: CreateLabDto) {
     return this.prisma.lab.create({ data });
@@ -127,15 +131,21 @@ export class LabsService {
       throw new ForbiddenException('Sem permissão ou reserva ativa para este laboratório');
     }
 
-    try {
-      const espUrl = `http://${lab.device.ipAddress}/open?apiToken=${lab.device.apiToken}`;
-      console.log(`Enviando comando para: ${espUrl}`);
-      await fetch(espUrl);
-    } catch (error) {
-      console.error(`Falha ao comunicar com dispositivo:`, error);
+    const wsSent = this.devicesGateway.sendUnlock(lab.device.id);
+    if (wsSent) {
+      console.log(`[WS] Comando de abertura enviado via WebSocket para o dispositivo ${lab.device.id}`);
+    } else {
+      console.log(`[WS] Dispositivo ${lab.device.id} não conectado via WebSocket. Tentando HTTP local...`);
+      try {
+        const espUrl = `http://${lab.device.ipAddress}/open?apiToken=${lab.device.apiToken}`;
+        console.log(`Enviando comando para: ${espUrl}`);
+        await fetch(espUrl);
+      } catch (error) {
+        console.error(`Falha ao comunicar com dispositivo via HTTP:`, error);
+      }
     }
 
-    return { message: 'Comando enviado.', access };
+    return { message: wsSent ? 'Comando enviado via WebSocket.' : 'Comando enviado via HTTP local.', access };
   }
 
   async removeUsersFromLab(dto: { labIds: number[], userId: number }) {

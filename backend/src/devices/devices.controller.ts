@@ -6,10 +6,15 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateDeviceIpDto } from './dto/update-device-ip.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth/jwt-auth.guard';
 import { PinAuthDto } from './dto/pin-auth.dto';
+import { DevicesGateway } from './devices.gateway';
 
 @Controller('devices')
 export class DevicesController {
-  constructor(private readonly devicesService: DevicesService, private prisma: PrismaService) {}
+  constructor(
+    private readonly devicesService: DevicesService,
+    private prisma: PrismaService,
+    private readonly devicesGateway: DevicesGateway,
+  ) {}
 
   @Post()
   create(@Body() createDeviceDto: CreateDeviceDto) {
@@ -118,8 +123,14 @@ export class DevicesController {
       throw new ForbiddenException('Usuário não tem acesso a este laboratório');
     }
 
+    // Trigger WS registration command if device is connected
+    const wsSent = this.devicesGateway.sendRegisterCard(deviceId, userId);
+
     return {
-      message: 'Dispositivo pronto para ler cartão',
+      message: wsSent
+        ? 'Dispositivo pronto para ler cartão (via WebSocket)'
+        : 'Dispositivo pronto para ler cartão (via HTTP local)',
+      wsSent,
       apiToken: device.apiToken,
       deviceIp: device.ipAddress,
       timeout: 15000,

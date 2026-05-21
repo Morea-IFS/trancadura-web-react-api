@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { WsAdapter } from '@nestjs/platform-ws';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -53,6 +54,9 @@ async function bootstrap() {
 
   // Global prefix
   app.setGlobalPrefix('api');
+
+  // WebSocket Adapter
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   // Shutdown hooks
   app.enableShutdownHooks();
