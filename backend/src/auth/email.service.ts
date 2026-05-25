@@ -1,32 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
+import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter | null = null;
+  private resend: Resend | null = null;
   private readonly logger = new Logger(EmailService.name);
 
   constructor(private configService: ConfigService) {
-    const smtpUser = this.configService.get<string>('SMTP_USER');
-    const smtpPass = this.configService.get<string>('SMTP_PASS');
+    const apiKey = this.configService.get<string>('RESEND_API_KEY');
 
-    // Só cria o transporter se as credenciais estiverem configuradas
-    if (smtpUser && smtpPass && !smtpUser.includes('your-email')) {
-      this.transporter = nodemailer.createTransport({
-        host: this.configService.get<string>('SMTP_HOST') || 'smtp.gmail.com',
-        port: parseInt(this.configService.get<string>('SMTP_PORT') || '587'),
-        secure: false,
-        connectionTimeout: 5000,  // 5s para conectar
-        socketTimeout: 10000,     // 10s de inatividade
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-      });
-      this.logger.log(`📧 EmailService configurado para: ${smtpUser}`);
+    if (apiKey && !apiKey.includes('re_placeholder')) {
+      this.resend = new Resend(apiKey);
+      this.logger.log('📧 EmailService configurado via Resend API.');
     } else {
-      this.logger.warn('⚠️ SMTP não configurado — emails de recuperação serão ignorados. Configure SMTP_USER e SMTP_PASS no .env');
+      this.logger.warn(
+        '⚠️ RESEND_API_KEY não configurado — emails serão ignorados. Adicione no Railway.',
+      );
     }
   }
 
@@ -35,9 +25,16 @@ export class EmailService {
     toName: string,
     code: string,
   ): Promise<void> {
+    if (!this.resend) {
+      this.logger.warn(
+        `📭 Email para ${toEmail} ignorado: Resend não configurado.`,
+      );
+      return;
+    }
+
     const from =
-      this.configService.get<string>('SMTP_FROM') ||
-      '"Trancadura" <noreply@trancadura.com>';
+      this.configService.get<string>('EMAIL_FROM') ||
+      'Trancadura <onboarding@resend.dev>';
 
     const html = `
 <!DOCTYPE html>
@@ -74,7 +71,7 @@ export class EmailService {
               </div>
 
               <!-- Expiration warning -->
-              <div style="background-color: #27272a; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: center;">
+              <div style="background-color: #27272a; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
                 <p style="margin: 0; font-size: 13px; color: #facc15;">
                   ⏱️ <strong>Este código expira em 15 minutos.</strong> Não o compartilhe com ninguém.
                 </p>
@@ -102,18 +99,17 @@ export class EmailService {
 </html>
     `.trim();
 
-    if (!this.transporter) {
-      this.logger.warn(`📭 Email para ${toEmail} ignorado: SMTP não configurado.`);
-      return;
-    }
-
-    await this.transporter.sendMail({
+    const { data, error } = await this.resend.emails.send({
       from,
       to: toEmail,
       subject: `${code} é seu código de recuperação — Trancadura`,
       html,
     });
 
-    this.logger.log(`📧 Email de recuperação enviado para: ${toEmail}`);
+    if (error) {
+      throw new Error(`Resend error: ${JSON.stringify(error)}`);
+    }
+
+    this.logger.log(`📧 Email enviado via Resend para ${toEmail} | ID: ${data?.id}`);
   }
 }

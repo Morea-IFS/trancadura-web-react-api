@@ -51,6 +51,7 @@
     "passport-jwt": "^4.0.1",
     "pdf-extraction": "^1.0.2",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.12.4",
     "rxjs": "^7.8.1",
     "ts-node": "^10.9.2",
     "uuid": "^11.1.0",
