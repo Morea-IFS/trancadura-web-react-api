@@ -5,15 +5,18 @@ import axios from 'axios';
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private apiKey: string | null = null;
-  private fromEmail = 'noreply@trancadura.com';
+  private apiKeyPublic: string | null = null;
+  private apiKeyPrivate: string | null = null;
+  private fromEmail = 'officegenisson@gmail.com';
   private fromName = 'Trancadura';
 
   constructor(private configService: ConfigService) {
-    const key = this.configService.get<string>('BREVO_API_KEY') || '';
+    const pub = this.configService.get<string>('MAILJET_API_KEY') || '';
+    const priv = this.configService.get<string>('MAILJET_API_SECRET') || '';
 
-    if (key && !key.includes('placeholder')) {
-      this.apiKey = key;
+    if (pub && priv) {
+      this.apiKeyPublic = pub;
+      this.apiKeyPrivate = priv;
 
       const fromRaw = this.configService.get<string>('EMAIL_FROM') || '';
       const match = fromRaw.match(/^"?(.+?)"?\s*<(.+)>$/);
@@ -22,9 +25,9 @@ export class EmailService {
         this.fromEmail = match[2].trim();
       }
 
-      this.logger.log(`📧 EmailService configurado via Brevo (from: ${this.fromEmail})`);
+      this.logger.log(`📧 EmailService configurado via Mailjet (from: ${this.fromEmail})`);
     } else {
-      this.logger.warn('⚠️ BREVO_API_KEY não configurado — emails serão ignorados.');
+      this.logger.warn('⚠️ MAILJET_API_KEY / MAILJET_API_SECRET não configurados — emails serão ignorados.');
     }
   }
 
@@ -33,8 +36,8 @@ export class EmailService {
     toName: string,
     code: string,
   ): Promise<void> {
-    if (!this.apiKey) {
-      this.logger.warn(`📭 Email para ${toEmail} ignorado: Brevo não configurado.`);
+    if (!this.apiKeyPublic || !this.apiKeyPrivate) {
+      this.logger.warn(`📭 Email para ${toEmail} ignorado: Mailjet não configurado.`);
       return;
     }
 
@@ -93,24 +96,31 @@ export class EmailService {
     `.trim();
 
     const response = await axios.post(
-      'https://api.brevo.com/v3/smtp/email',
+      'https://api.mailjet.com/v3.1/send',
       {
-        sender: { name: this.fromName, email: this.fromEmail },
-        to: [{ email: toEmail, name: toName }],
-        subject: `${code} é seu código de recuperação — Trancadura`,
-        htmlContent: html,
+        Messages: [
+          {
+            From: { Email: this.fromEmail, Name: this.fromName },
+            To: [{ Email: toEmail, Name: toName }],
+            Subject: `${code} é seu código de recuperação — Trancadura`,
+            HTMLPart: html,
+          },
+        ],
       },
       {
-        headers: {
-          'api-key': this.apiKey,
-          'Content-Type': 'application/json',
+        auth: {
+          username: this.apiKeyPublic,
+          password: this.apiKeyPrivate,
         },
         timeout: 10000,
       },
     );
 
-    this.logger.log(
-      `📧 Email enviado via Brevo para ${toEmail} | MessageId: ${response.data?.messageId ?? 'ok'}`,
-    );
+    const status = response.data?.Messages?.[0]?.Status;
+    this.logger.log(`📧 Email via Mailjet para ${toEmail} | Status: ${status}`);
+
+    if (status !== 'success') {
+      throw new Error(`Mailjet retornou status: ${status}`);
+    }
   }
 }
