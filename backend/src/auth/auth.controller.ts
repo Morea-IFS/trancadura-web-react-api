@@ -1,12 +1,14 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   Res,
   UseGuards,
   Req,
   ForbiddenException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { SignupDto } from './dto/signup.dto';
@@ -36,7 +38,24 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
   ) {}
+
+  // Diagnóstico temporário — verificar status SMTP em produção
+  @Get('smtp-status')
+  smtpStatus() {
+    const user = this.configService.get<string>('SMTP_USER') || '';
+    const pass = this.configService.get<string>('SMTP_PASS') || '';
+    const configured = !!(user && pass && !user.includes('your-email'));
+    return {
+      smtpConfigured: configured,
+      smtpUser: user ? user.replace(/(.{3}).*(@.*)/, '$1***$2') : 'NÃO DEFINIDO',
+      smtpHost: this.configService.get<string>('SMTP_HOST') || 'smtp.gmail.com',
+      smtpPort: this.configService.get<string>('SMTP_PORT') || '587',
+      hasPass: !!pass,
+    };
+  }
+
 
   @Roles('superuser', 'staff')
   @UseGuards(JwtAuthGuard, RolesGuard)
