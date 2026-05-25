@@ -10,6 +10,9 @@ import {
 import { AuthService } from './auth.service';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { SignupDto } from './dto/signup.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Response } from 'express';
 import { Roles } from './roles/roles.decorator';
 import { RolesGuard } from './roles/roles.guard';
@@ -157,5 +160,24 @@ export class AuthController {
       path: '/',
     });
     return { message: 'Logout realizado com sucesso' };
+  }
+
+  // ====================================================================
+  // PASSWORD RESET ENDPOINTS
+  // ====================================================================
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post('verify-reset-code')
+  async verifyResetCode(@Body() dto: VerifyResetCodeDto) {
+    return this.authService.verifyResetCode(dto.email, dto.code);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.resetToken, dto.newPassword);
   }
 }

@@ -32,6 +32,8 @@ model User {
   accesses       UserAccess[]
   reservations   Reservation[]
   accessRequests TemporaryAccessRequest[]
+  resetCodes     PasswordResetCode[]
+  resetSessions  PasswordResetSession[]
 
   @@map("users")
 }
@@ -213,4 +215,29 @@ model TemporaryAccessRequest {
 
   user      User      @relation(fields: [userId], references: [id])
   lab       Lab       @relation(fields: [labId], references: [id])
+}
+
+model PasswordResetCode {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  codeHash  String   @map("code_hash")
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_codes")
+}
+
+model PasswordResetSession {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  resetToken String   @unique @map("reset_token")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_sessions")
 }
