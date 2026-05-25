@@ -1,21 +1,33 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter | null = null;
+  private readonly logger = new Logger(EmailService.name);
 
   constructor(private configService: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST') || 'smtp.gmail.com',
-      port: parseInt(this.configService.get<string>('SMTP_PORT') || '587'),
-      secure: false, // true para 465, false para outras portas
-      auth: {
-        user: this.configService.get<string>('SMTP_USER'),
-        pass: this.configService.get<string>('SMTP_PASS'),
-      },
-    });
+    const smtpUser = this.configService.get<string>('SMTP_USER');
+    const smtpPass = this.configService.get<string>('SMTP_PASS');
+
+    // Só cria o transporter se as credenciais estiverem configuradas
+    if (smtpUser && smtpPass && !smtpUser.includes('your-email')) {
+      this.transporter = nodemailer.createTransport({
+        host: this.configService.get<string>('SMTP_HOST') || 'smtp.gmail.com',
+        port: parseInt(this.configService.get<string>('SMTP_PORT') || '587'),
+        secure: false,
+        connectionTimeout: 5000,  // 5s para conectar
+        socketTimeout: 10000,     // 10s de inatividade
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+      this.logger.log(`📧 EmailService configurado para: ${smtpUser}`);
+    } else {
+      this.logger.warn('⚠️ SMTP não configurado — emails de recuperação serão ignorados. Configure SMTP_USER e SMTP_PASS no .env');
+    }
   }
 
   async sendPasswordResetEmail(
@@ -90,11 +102,18 @@ export class EmailService {
 </html>
     `.trim();
 
+    if (!this.transporter) {
+      this.logger.warn(`📭 Email para ${toEmail} ignorado: SMTP não configurado.`);
+      return;
+    }
+
     await this.transporter.sendMail({
       from,
       to: toEmail,
       subject: `${code} é seu código de recuperação — Trancadura`,
       html,
     });
+
+    this.logger.log(`📧 Email de recuperação enviado para: ${toEmail}`);
   }
 }

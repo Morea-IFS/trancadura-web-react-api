@@ -214,16 +214,20 @@ export class AuthService {
       },
     });
 
-    // Envia email (sem bloquear a resposta em caso de erro)
+    // Envia email com timeout de segurança (12s) para não bloquear a resposta
+    const emailTimeout = new Promise<void>((_, reject) =>
+      setTimeout(() => reject(new Error('Email timeout')), 12000),
+    );
+
     try {
-      await this.emailService.sendPasswordResetEmail(
-        user.email,
-        user.username,
-        code,
-      );
+      await Promise.race([
+        this.emailService.sendPasswordResetEmail(user.email, user.username, code),
+        emailTimeout,
+      ]);
     } catch (err) {
       console.error('[PasswordReset] Falha ao enviar email:', err);
     }
+
 
     return genericResponse;
   }
