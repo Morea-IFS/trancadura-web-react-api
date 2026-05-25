@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
+import { EmailService } from './email.service';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { SignupDto } from './dto/signup.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -39,21 +40,41 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
-  // Diagnóstico temporário — verificar status SMTP em produção
-  @Get('smtp-status')
-  smtpStatus() {
-    const user = this.configService.get<string>('SMTP_USER') || '';
-    const pass = this.configService.get<string>('SMTP_PASS') || '';
-    const configured = !!(user && pass && !user.includes('your-email'));
-    return {
-      smtpConfigured: configured,
-      smtpUser: user ? user.replace(/(.{3}).*(@.*)/, '$1***$2') : 'NÃO DEFINIDO',
-      smtpHost: this.configService.get<string>('SMTP_HOST') || 'smtp.gmail.com',
-      smtpPort: this.configService.get<string>('SMTP_PORT') || '587',
-      hasPass: !!pass,
-    };
+  // Diagnóstico — testa envio real de email via Brevo
+  @Get('email-test')
+  async emailTest() {
+    const brevoKey = this.configService.get<string>('BREVO_API_KEY') || '';
+    const emailFrom = this.configService.get<string>('EMAIL_FROM') || 'não definido';
+    const hasKey = !!(brevoKey && !brevoKey.includes('placeholder'));
+
+    if (!hasKey) {
+      return { ok: false, error: 'BREVO_API_KEY não configurado no Railway' };
+    }
+
+    try {
+      await this.emailService.sendPasswordResetEmail(
+        'officegenisson@gmail.com',
+        'Teste Diagnóstico',
+        '999999',
+      );
+      return {
+        ok: true,
+        message: 'Email de teste enviado! Verifique a caixa de officegenisson@gmail.com',
+        brevoKeyPrefix: brevoKey.substring(0, 12) + '...',
+        emailFrom,
+      };
+    } catch (err: any) {
+      return {
+        ok: false,
+        error: err.message,
+        detail: err.response?.data ?? null,
+        brevoKeyPrefix: brevoKey.substring(0, 12) + '...',
+        emailFrom,
+      };
+    }
   }
 
 
